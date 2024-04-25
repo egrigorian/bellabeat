@@ -1,0 +1,257 @@
+#Installing and loading packages
+install.packages("tidyverse")
+install.packages("scales")
+install.packages("here")
+install.packages("janitor")
+install.packages("skimr")
+install.packages("lubridate")
+install.packages("dplyr")
+
+library(tidyverse)
+library(scales)
+library(here)
+library(janitor)
+library(skimr)
+library(lubridate)
+libary(dplyr)
+
+#Importing data sets
+daily_activity <- read_csv("Fitabase Data 4.12.16-5.12.16/dailyActivity_merged.csv")
+daily_sleep <- read_csv("Fitabase Data 4.12.16-5.12.16/sleepDay_merged.csv")
+daily_calories <- read_csv("Fitabase Data 4.12.16-5.12.16/dailyCalories_merged.csv")
+daily_intensities <- read_csv("Fitabase Data 4.12.16-5.12.16/dailyIntensities_merged.csv")
+daily_steps <- read_csv("Fitabase Data 4.12.16-5.12.16/dailySteps_merged.csv")
+weight_log <- read_csv("Fitabase Data 4.12.16-5.12.16/weightLogInfo_merged.csv")
+hourly_calories <- read_csv("Fitabase Data 4.12.16-5.12.16/hourlyCalories_merged.csv")
+hourly_intensities <- read_csv("Fitabase Data 4.12.16-5.12.16/hourlyIntensities_merged.csv")
+hourly_steps <- read_csv("Fitabase Data 4.12.16-5.12.16/hourlySteps_merged.csv")
+
+#Checking number of unique Ids
+n_distinct(daily_activity$Id) #have 33
+n_distinct(daily_calories$Id) #have 33
+n_distinct(daily_intensities$Id) #have 33
+n_distinct(daily_sleep$Id) #have 24
+n_distinct(daily_steps$Id) #have 33
+n_distinct(weight_log$Id) #have 8? -- too small to use for data
+n_distinct(hourly_calories$Id) #have 33
+n_distinct(hourly_intensities$Id) #have 33
+n_distinct(hourly_steps$Id) #have 33
+
+#Checking for duplicates
+sum(duplicated(daily_activity))
+sum(duplicated(daily_calories))
+sum(duplicated(daily_intensities))
+sum(duplicated(daily_sleep)) #has 3
+sum(duplicated(daily_steps))
+sum(duplicated(hourly_calories)) 
+sum(duplicated(hourly_intensities))
+sum(duplicated(hourly_steps))
+
+#Drop 3 duplicates from daily_sleep data
+daily_sleep <- daily_sleep %>% distinct() %>% drop_na()
+sum(duplicated(daily_sleep)) #check to now have 0
+
+#Changing formatting to all lower case to later merge
+clean_names(daily_activity) 
+daily_activity <- rename_with(daily_activity, tolower)
+clean_names(daily_sleep) 
+daily_sleep <- rename_with(daily_sleep, tolower)
+clean_names(daily_calories) 
+daily_calories <- rename_with(daily_calories, tolower)
+clean_names(daily_intensities) 
+daily_intensities <- rename_with(daily_intensities, tolower)
+clean_names(daily_steps) 
+daily_steps <- rename_with(daily_steps, tolower)
+clean_names(hourly_calories) 
+hourly_calories <- rename_with(hourly_calories, tolower)
+clean_names(hourly_intensities) 
+hourly_intensities <- rename_with(hourly_intensities, tolower)
+clean_names(hourly_steps) 
+hourly_steps <- rename_with(hourly_steps, tolower)
+
+#Change date formats to be the same. Checked all with str() function
+daily_activity <-daily_activity %>% 
+  rename(date = activitydate) %>% 
+  mutate(date = as_date(date, format = "%m/%d/%Y"))
+
+daily_sleep <- daily_sleep %>%
+  rename(date = sleepday) %>% 
+  mutate(date = as_date(date, format ="%m/%d/%Y %I:%M:%S %p"))
+
+daily_steps <- daily_steps %>%
+  rename(date = activityday) %>% 
+  mutate(date = as_date(date, format ="%m/%d/%Y"))
+
+daily_calories <- daily_calories %>%
+  rename(date = activityday) %>% 
+  mutate(date = as_date(date, format ="%m/%d/%Y"))
+
+daily_intensities <- daily_intensities %>%
+  rename(date = activityday) %>% 
+  mutate(date = as_date(date, format ="%m/%d/%Y"))
+
+#Converted rest to date-time
+hourly_calories <- hourly_calories %>%
+  rename(date_time = activityhour) %>% 
+  mutate(date_time = as.POSIXct(date_time, format ="%m/%d/%Y %I:%M:%S %p"))
+
+hourly_intensities <- hourly_intensities %>%
+  rename(date_time = activityhour) %>% 
+  mutate(date_time = as.POSIXct(date_time, format ="%m/%d/%Y %I:%M:%S %p"))
+
+hourly_steps <- hourly_steps %>%
+  rename(date_time = activityhour) %>% 
+  mutate(date_time = as.POSIXct(date_time, format ="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone()))
+
+#Merge activity and sleep data frame by id and date
+daily_activity_sleep <- merge(daily_activity, daily_sleep, by=c("id","date"))
+
+#Summarize data sets
+daily_activity %>% 
+  select(totalsteps, totaldistance, sedentaryminutes, calories) %>% 
+  summary() 
+
+#average steps is 7638 which is under recommended 10,000
+#average sedentary minutes is 991 (16.5 hours a day)
+#average calories burned is 2304 
+
+daily_sleep %>% 
+  select(totalminutesasleep, totaltimeinbed) %>% 
+  summary()
+
+#average sleep time is 419 minutes (just under 7 hours)
+#average time in bed is 458 minutes (almost 40 more minutes in bed)
+
+daily_calories %>% 
+  select(calories) %>% 
+  summary() #confirmed 2304 calories per day 
+
+daily_steps %>% 
+  select(steptotal) %>% 
+  summary() #daily step average is 7638 from before
+
+hourly_steps %>% 
+  select(steptotal) %>% 
+  summary() #mean amount of hourly steps is 320 but large range from min to max
+
+mean_calories <- 2304
+mean_steps <- 7638
+
+#Exploring correlation between steps and calories. Suspected high correlation
+ggplot(data = daily_activity, aes(x = totalsteps, y = calories)) +
+  geom_point() +
+  geom_smooth(method="lm", color = "blue") +
+  labs(title = "Total Steps vs. Calories", x = "Total Steps", y = "Calories") +
+  geom_hline(mapping = aes(yintercept=mean_calories),color="yellow",lwd=1.0)+
+  geom_vline(mapping = aes(xintercept=mean_steps),color="green",lwd=1.0) +
+  geom_text(mapping = aes(x=10000,y=500,label="Average Steps",srt=-90)) +
+  geom_text(mapping = aes(x=29000,y=2500,label="Average Calories"))
+
+#Exploring correlation between sleep and steps 
+ggplot(data = daily_activity_sleep, aes(x = totalsteps, y = totalminutesasleep)) +
+  geom_point() +
+  geom_smooth(method="lm", color = "blue") +
+  labs(title = "Total Steps vs. Sleep Minutes", x = "Total Steps", y = "Sleep Minutes")
+
+#Merge daily_intensities and sleep data frame by id and date
+daily_intensity_sleep <- merge(daily_intensities, daily_sleep, by=c("id","date"))
+
+#Exploring correlation between intensity and sleep
+ggplot(data = daily_intensity_sleep, aes(x = veryactiveminutes, y = totalminutesasleep)) +
+  geom_point() +
+  geom_smooth(method="lm", color = "blue") +
+  labs(title = "Daily Exercise Intensity vs. Sleep Minutes", x = "Exercise Intensity", y = "Sleep Minutes")
+
+#Exploring active days of the week by converting to days of week
+weekly_steps <- daily_activity %>%
+  mutate(weekday = weekdays(date))
+weekly_steps$weekday <-ordered(weekly_steps$weekday, levels=c("Monday", "Tuesday", "Wednesday", "Thursday",
+                                                                "Friday", "Saturday", "Sunday"))
+weekly_steps <-weekly_steps %>%
+  group_by(weekday) %>%
+  summarize (daily_steps = mean(totalsteps))
+
+head(weekly_steps) 
+
+#visualize the weekly_steps
+ggplot(weekly_steps, aes(weekday, daily_steps)) +
+  geom_col(fill="lightblue") +
+  labs(title = "Steps per Weekday", x = "Weekday", y = "Steps")
+
+#Convert sleep data to days of week
+weekly_sleep <- daily_sleep %>%
+  mutate(weekday = weekdays(date))
+weekly_sleep$weekday <-ordered(weekly_sleep$weekday, levels=c("Monday", "Tuesday", "Wednesday", "Thursday",
+                                                              "Friday", "Saturday", "Sunday"))
+weekly_sleep <-weekly_sleep %>%
+  group_by(weekday) %>%
+  summarize (daily_sleep = mean(totalminutesasleep))
+
+head(weekly_sleep) 
+
+recc_sleep <- 480 #8 hours of reccomended sleep variable
+rm(needed_sleep)
+
+#visualize sleep hours
+ggplot(weekly_sleep, aes(weekday, daily_sleep)) +
+  geom_col(fill="lightgreen") +
+  labs(title = "Sleep minutes per Weekday", x = "Weekday", y = "Minutes") +
+  geom_hline(yintercept = recc_sleep)
+
+#split date time in hourly_intensities into two columns
+hourly_intensities <- hourly_intensities %>% 
+  separate(date_time, into = c("date", "time"), sep = " ")  
+
+hourly_intensities <- hourly_intensities %>% 
+  group_by(time) %>% 
+  drop_na() %>% 
+  summarise(mean_total_intensities = mean(totalintensity)) 
+
+#visualize
+ggplot(data = hourly_intensities, aes(x = time, y = mean_total_intensities)) +
+  geom_histogram(stat = "identity", fill = "violet") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title = "Average Total Intensity vs. Time of Day")
+#most active between 5am ans 10pm with peak between 5pm and 7pm
+
+#calculate how often people use their watches and create groups
+daily_use <- daily_activity_sleep %>% 
+  group_by(id) %>% 
+  summarize(days_used=sum(n())) %>% 
+  mutate(user_type = case_when(
+    days_used <=10 ~ "low user",
+    days_used >= 11 & days_used <=20 ~ "moderate user",
+    days_used >= 21 ~ "frequent user",
+  ))
+
+#convert group numbers to percents
+daily_use_percent <- daily_use %>%
+  group_by(user_type) %>%
+  summarise(total = n()) %>%
+  mutate(totals = sum(total)) %>%
+  group_by(user_type) %>%
+  summarise(total_percent = total / totals) %>%
+  mutate(labels = scales::percent(total_percent))
+
+head(daily_use_percent)
+
+#making a pie chart to visualize daily_use_percentage
+daily_use_percent %>%
+  ggplot(aes(x = "",y = total_percent, fill = user_type)) +
+  geom_bar(stat = "identity", width = 1)+
+  coord_polar("y", start=0)+
+  theme_minimal()+
+  theme(axis.title.x= element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=14, face = "bold")) +
+  geom_text(aes(label = labels),
+            position = position_stack(vjust = 0.5))+
+  scale_fill_manual(values = c( "#ff5f56","#f47f6a","#f6b89e"),
+                    labels = c("Frequent user - 21 to 31 days",
+                               "Moderate user - 11 to 20 days",
+                               "Low user - 1 to 10 days"))+
+  labs(title="Daily Use of Fitness Tracker")
