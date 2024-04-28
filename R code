@@ -189,7 +189,7 @@ weekly_sleep <-weekly_sleep %>%
 
 head(weekly_sleep) 
 
-recc_sleep <- 480 #8 hours of reccomended sleep variable
+min_recc_sleep <- 420 #7 hours of reccomended sleep variable
 rm(needed_sleep)
 
 #visualize sleep hours
