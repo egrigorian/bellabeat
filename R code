@@ -130,6 +130,11 @@ daily_steps %>%
   select(steptotal) %>% 
   summary() #daily step average is 7638 from before
 
+
+daily_intensities %>% 
+  select(sedentaryminutes) %>% 
+  summary()
+
 hourly_steps %>% 
   select(steptotal) %>% 
   summary() #mean amount of hourly steps is 320 but large range from min to max
